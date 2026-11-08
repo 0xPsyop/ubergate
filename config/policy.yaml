@@ -1,0 +1,24 @@
+default: deny
+rules:
+  - actors:
+      - human
+      - service
+      - agent
+    risk:
+      - read
+    effect: allow
+  - actors:
+      - human
+      - service
+      - agent
+    risk:
+      - write
+    effect: allow
+    require_scope: write
+  - actors:
+      - human
+      - service
+    risk:
+      - destructive
+    effect: allow
+    require_scope: destructive

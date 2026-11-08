@@ -1,0 +1,145 @@
+// PII redaction middleware with pattern matching and key-based redaction
+// Data plane component
+
+import type { RedactionConfig } from '../types.js';
+
+export interface RedactionResult {
+  value: unknown;
+  count: number;
+}
+
+function luhnCheck(cardNumber: string): boolean {
+  const digits = cardNumber.replace(/\D/g, '');
+  if (digits.length < 13 || digits.length > 19) {
+    return false;
+  }
+
+  let sum = 0;
+  let isEven = false;
+
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let digit = parseInt(digits[i], 10);
+
+    if (isEven) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+    isEven = !isEven;
+  }
+
+  return sum % 10 === 0;
+}
+
+function redactString(
+  value: string,
+  patterns: RedactionConfig['patterns'],
+  replacement: string
+): { value: string; count: number } {
+  let count = 0;
+  let result = value;
+
+  if (patterns.includes('email')) {
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+    const matches = result.match(emailRegex);
+    if (matches) {
+      count += matches.length;
+      result = result.replace(emailRegex, replacement);
+    }
+  }
+
+  if (patterns.includes('phone')) {
+    // International format: +1234567890 or +1 234 567 8900
+    // US format: (123) 456-7890 or 123-456-7890 or 1234567890
+    const phoneRegex = /\+?[\d\s\-()]{10,}/g;
+    const matches = result.match(phoneRegex);
+    if (matches) {
+      count += matches.filter(m => m.replace(/\D/g, '').length >= 10).length;
+      result = result.replace(phoneRegex, m => {
+        if (m.replace(/\D/g, '').length >= 10) {
+          return replacement;
+        }
+        return m;
+      });
+    }
+  }
+
+  if (patterns.includes('ssn')) {
+    const ssnRegex = /\d{3}-\d{2}-\d{4}/g;
+    const matches = result.match(ssnRegex);
+    if (matches) {
+      count += matches.length;
+      result = result.replace(ssnRegex, replacement);
+    }
+  }
+
+  if (patterns.includes('credit_card')) {
+    const cardRegex = /[\d\s\-]{13,19}/g;
+    const matches = result.match(cardRegex);
+    if (matches) {
+      for (const match of matches) {
+        const digits = match.replace(/\D/g, '');
+        if (luhnCheck(digits)) {
+          count++;
+          result = result.replace(match, replacement);
+        }
+      }
+    }
+  }
+
+  return { value: result, count };
+}
+
+function redactValue(
+  value: unknown,
+  config: RedactionConfig,
+  parentKey: string | null = null
+): { value: unknown; count: number } {
+  if (value === null || value === undefined) {
+    return { value, count: 0 };
+  }
+
+  if (typeof value === 'string') {
+    // Check if key-based redaction applies
+    if (parentKey && config.keys.includes(parentKey.toLowerCase())) {
+      return { value: config.replacement, count: 1 };
+    }
+
+    // Pattern-based redaction
+    return redactString(value, config.patterns, config.replacement);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return { value, count: 0 };
+  }
+
+  if (Array.isArray(value)) {
+    let totalCount = 0;
+    const newArray = value.map(item => {
+      const result = redactValue(item, config, parentKey);
+      totalCount += result.count;
+      return result.value;
+    });
+    return { value: newArray, count: totalCount };
+  }
+
+  if (typeof value === 'object') {
+    let totalCount = 0;
+    const newObj: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      const result = redactValue(item, config, key);
+      totalCount += result.count;
+      newObj[key] = result.value;
+    }
+    return { value: newObj, count: totalCount };
+  }
+
+  return { value, count: 0 };
+}
+
+export function redact(value: unknown, config: RedactionConfig): RedactionResult {
+  return redactValue(value, config);
+}

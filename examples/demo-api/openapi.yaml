@@ -1,0 +1,237 @@
+openapi: 3.0.0
+info:
+  title: Demo API
+  version: 1.0.0
+  description: A simple demo API with fake PII data
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+
+paths:
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      description: Returns a list of users with optional limit
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      operationId: createUser
+      summary: Create a new user
+      description: Creates a new user with the provided data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                ssn:
+                  type: string
+                plan:
+                  type: string
+                  enum:
+                    - free
+                    - premium
+      responses:
+        '201':
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      summary: Get a user by ID
+      description: Returns a single user by their ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    delete:
+      operationId: deleteUser
+      summary: Delete a user
+      description: Deletes a user by their ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted
+
+  /orders:
+    get:
+      operationId: listOrders
+      summary: List all orders
+      description: Returns a list of orders, optionally filtered by user ID
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+    post:
+      operationId: createOrder
+      summary: Create a new order
+      description: Creates a new order for a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - items
+              properties:
+                userId:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - sku
+                      - qty
+                      - price
+                    properties:
+                      sku:
+                        type: string
+                      qty:
+                        type: integer
+                      price:
+                        type: number
+      responses:
+        '201':
+          description: Created order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      summary: Get an order by ID
+      description: Returns a single order by its ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        ssn:
+          type: string
+          pattern: '^\\d{3}-\\d{2}-\\d{4}$'
+        plan:
+          type: string
+          enum:
+            - free
+            - premium
+
+    Order:
+      type: object
+      required:
+        - id
+        - userId
+        - items
+        - total
+        - cardNumber
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - sku
+              - qty
+              - price
+            properties:
+              sku:
+                type: string
+              qty:
+                type: integer
+              price:
+                type: number
+        total:
+          type: number
+        cardNumber:
+          type: string

@@ -1,0 +1,41 @@
+port: 3000
+audit_log_path: ./logs/audit.jsonl
+rate_limit:
+  requests_per_minute: 60
+  burst: 20
+max_response_bytes: 1048576
+request_timeout_ms: 10000
+servers:
+  demo:
+    base_url: ${DEMO_API_URL:-http://localhost:4000}
+callers:
+  - id: alice
+    type: human
+    token_env: ALICE_TOKEN
+    scopes:
+      - write
+      - destructive
+  - id: billing-svc
+    type: service
+    token_env: BILLING_TOKEN
+    scopes:
+      - write
+  - id: helper-agent
+    type: agent
+    token_env: AGENT_TOKEN
+    scopes:
+      - write
+redaction:
+  patterns:
+    - email
+    - phone
+    - ssn
+    - credit_card
+  keys:
+    - password
+    - ssn
+    - token
+    - secret
+    - api_key
+    - cardNumber
+  replacement: '[REDACTED]'
