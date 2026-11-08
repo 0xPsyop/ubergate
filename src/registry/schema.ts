@@ -69,7 +69,7 @@ const CallerSchema = z.object({
 });
 
 const GatewayConfigSchema = z.object({
-  port: z.number().positive(),
+  port: z.number().int().min(0),
   audit_log_path: z.string(),
   rate_limit: RateLimitConfigSchema,
   max_response_bytes: z.number().positive(),
