@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  demo-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["node", "dist/examples/demo-api/server.js"]
+    environment:
+      - PORT=4000
+    ports:
+      - "4000:4000"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DEMO_API_URL=http://demo-api:4000
+      - ALICE_TOKEN=${ALICE_TOKEN:-dev-alice-token}
+      - BILLING_TOKEN=${BILLING_TOKEN:-dev-billing-token}
+      - AGENT_TOKEN=${AGENT_TOKEN:-dev-agent-token}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      - demo-api
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs

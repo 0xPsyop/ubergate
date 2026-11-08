@@ -74,7 +74,7 @@ function redactString(
   if (patterns.includes('phone')) {
     // US: (123) 456-7890, 123-456-7890, +1-123-456-7890
     // Int: +44 20 7123 4567, +1-555-010-1234
-    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\+\d[\d\s\-()]{8,}\d\b/g;
+    const phoneRegex = /(?<!\w)(?:(?:\+?1[-.\s]?)?(?:\(\d{3}\)[-.\s]?|\d{3}[-.\s])\d{3}[-.\s]?\d{4}|\+\d[\d\s\-()]{8,}\d)(?!\w)/g;
     result = result.replace(phoneRegex, (match) => {
       const digits = match.replace(/\D/g, '');
       if (digits.length >= 10 && digits.length <= 15) {

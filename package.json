@@ -8,7 +8,7 @@
     "mcp-gateway": "dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/postbuild.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "dev": "tsx src/cli/index.ts serve",
