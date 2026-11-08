@@ -1,6 +1,6 @@
 # Architecture & System Design
 
-This document details the system design of `mcp-gateway`, explaining how it implements the principles outlined in Uber Engineering's *"Designing MCP Gateway"* whitepaper and blog post.
+This document details the system design of `ubergate`, explaining how it implements the principles outlined in Uber Engineering's *"Designing MCP Gateway"* whitepaper and blog post.
 
 ---
 
@@ -15,7 +15,7 @@ flowchart TD
         Crawl --> Merge["Pure Merge Logic"]
         Merge --> YAML["config/tools.yaml"]
         Human["Developer / PR Review"] -->|Enables Tools| YAML
-        Validate["mcp-gateway validate"] -->|CI Check| YAML
+        Validate["ubergate validate"] -->|CI Check| YAML
     end
 
     subgraph DataPlane["Data Plane (Runtime Gateway)"]
@@ -107,7 +107,7 @@ When an agent invokes `invoke_tool` through the gateway, the request passes thro
 
 ## 3. Mapping to Uber Engineering's Design
 
-| Uber Engineering Design Concept | `mcp-gateway` Implementation | Purpose / Benefit |
+| Uber Engineering Design Concept | `ubergate` Implementation | Purpose / Benefit |
 | :--- | :--- | :--- |
 | **Contract-Driven Tool Generation** | `src/crawler/openapi.ts` | Eliminates manual MCP server authoring; APIs remain source of truth. |
 | **Discovery != Exposure** | `src/crawler/merge.ts` + `config/tools.yaml` | All crawled tools default to `enabled: false`. Humans enable via Git PRs. |

@@ -63,8 +63,8 @@ flowchart TD
 
 ```bash
 # Clone and install dependencies
-git clone https://github.com/your-org/mcp-gateway.git
-cd mcp-gateway
+git clone https://github.com/your-org/ubergate.git
+cd ubergate
 npm install
 
 # Setup development environment variables

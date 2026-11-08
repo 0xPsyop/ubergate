@@ -17,7 +17,7 @@ export function createMcpServer(
 ): McpServer {
   const server = new McpServer(
     {
-      name: 'mcp-gateway',
+      name: 'ubergate',
       version: '0.1.0',
     },
     {

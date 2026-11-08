@@ -1,11 +1,11 @@
 {
-  "name": "mcp-gateway",
+  "name": "ubergate",
   "version": "0.1.0",
   "description": "OpenAPI-to-governed-MCP gateway with policy enforcement and audit logging",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-gateway": "dist/cli/index.js"
+    "ubergate": "dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc && node scripts/postbuild.js",

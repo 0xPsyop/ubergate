@@ -10,7 +10,7 @@ import { createGateway } from '../gateway/createGateway.js';
 const program = new Command();
 
 program
-  .name('mcp-gateway')
+  .name('ubergate')
   .description('OpenAPI-to-governed-MCP gateway')
   .version('0.1.0');
 

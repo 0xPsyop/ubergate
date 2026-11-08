@@ -24,7 +24,7 @@ describe('Gateway E2E Integration', () => {
     demoApi = startDemoApi(0);
 
     // 2. Setup temp config dir
-    tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-gateway-e2e-'));
+    tempConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ubergate-e2e-'));
     auditLogPath = path.join(tempConfigDir, 'audit.jsonl');
 
     // Crawl demo API spec

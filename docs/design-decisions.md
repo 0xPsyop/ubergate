@@ -1,12 +1,12 @@
 # Design Decisions & Architectural Trade-offs
 
-This document explains the rationale behind key engineering decisions in `mcp-gateway`.
+This document explains the rationale behind key engineering decisions in `ubergate`.
 
 ---
 
 ## 1. Why Git as the Control Plane?
 
-Instead of building a separate administrative UI and database to store enabled tools, `mcp-gateway` uses YAML files in a Git repository as its control plane.
+Instead of building a separate administrative UI and database to store enabled tools, `ubergate` uses YAML files in a Git repository as its control plane.
 
 **Rationale:**
 - **Auditability and Attribution**: Every tool enablement, modification, or ownership transfer is captured in a Git commit signed by an author, providing an immutable audit trail for compliance (SOC2/ISO27001).
@@ -40,7 +40,7 @@ The gateway does not maintain long-lived stateful MCP connections with session a
 
 ## 4. Why Three Meta-Tools Instead of Full Catalog Registration?
 
-Conventional MCP servers register every available API endpoint in the `tools/list` response. In contrast, `mcp-gateway` registers only three meta-tools:
+Conventional MCP servers register every available API endpoint in the `tools/list` response. In contrast, `ubergate` registers only three meta-tools:
 1. `search_tools(query, limit)`
 2. `get_schema(tool_id)`
 3. `invoke_tool(tool_id, arguments, fields)`

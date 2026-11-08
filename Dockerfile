@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for mcp-gateway
+# Multi-stage Dockerfile for ubergate
 # Stage 1: Build
 FROM node:20-alpine AS builder
 

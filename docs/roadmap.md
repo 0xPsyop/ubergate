@@ -1,6 +1,6 @@
 # Architecture Roadmap & Future Work
 
-The following capabilities were intentionally excluded from the initial `mcp-gateway` MVP to maintain code clarity, zero-dependency offline verification, and adherence to core gateway responsibilities. They represent our architectural roadmap for enterprise production deployments.
+The following capabilities were intentionally excluded from the initial `ubergate` MVP to maintain code clarity, zero-dependency offline verification, and adherence to core gateway responsibilities. They represent our architectural roadmap for enterprise production deployments.
 
 ---
 

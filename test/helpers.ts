@@ -82,7 +82,7 @@ export function makeGatewayConfig(overrides?: Partial<GatewayConfig>): GatewayCo
 }
 
 export function createTempConfigDir(snapshot: RegistrySnapshot): { dir: string; cleanup: () => void } {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-gateway-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ubergate-test-'));
 
   fs.writeFileSync(
     path.join(dir, 'tools.yaml'),
