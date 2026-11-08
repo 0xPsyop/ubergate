@@ -4,7 +4,7 @@ import { makeTool } from './helpers.js';
 import type { Tool } from '../src/types.js';
 
 describe('Merge Logic (Discovery is not exposure)', () => {
-  it('case 1: new tool starts disabled: false, needs_review: false, with specified owner', () => {
+  it('new tool starts disabled and does not need review, with specified owner', () => {
     const existing: Tool[] = [];
     const crawled: Tool[] = [makeTool('demo.newTool', 'read')];
 
@@ -49,7 +49,7 @@ describe('Merge Logic (Discovery is not exposure)', () => {
     expect(tools[0].needs_review).toBe(false);
   });
 
-  it('case 3: changed tool (different source_hash) updates request/schema/hash/desc/risk, preserves owner, resets enabled: false and needs_review: true', () => {
+  it('changed source_hash resets enabled and requires review while updating the tool and preserving owner', () => {
     const existingTool = makeTool('demo.tool1', 'read', {
       source_hash: 'old_hash',
       enabled: true,

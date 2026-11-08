@@ -130,7 +130,7 @@ Configure your MCP client settings with HTTP transport and authorization headers
    npm run crawl:demo -- --owner @team-demo
    ```
 
-   All generated tools are created with `enabled: false` and `needs_review: false`.
+   A newly discovered tool is merged with `enabled: false` and `needs_review: false`. If an existing tool has the same ID but a different `source_hash`, the merge resets it to `enabled: false` and sets `needs_review: true`; unchanged tools preserve their existing human edits and review state.
 
 2. **Open a Pull Request:**
    A human engineer reviews the endpoint and enables it explicitly in Git:
