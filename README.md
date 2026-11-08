@@ -132,6 +132,12 @@ Configure your MCP client settings with HTTP transport and authorization headers
 }
 ```
 
+## Caller authentication
+
+The gateway accepts static bearer tokens in the `Authorization: Bearer <token>` header. A caller is configured with either an inline `token` value or a `token_env` name whose value is read from the process environment; the configured caller ID, type, and scopes are then used by policy checks. Tokens are SHA-256 hashed and compared with `crypto.timingSafeEqual`. This is not JWT or OAuth authentication: the gateway does not validate issuer, audience, expiry, or other claims, and it has no built-in token issuance or rotation.
+
+The checked-in [`.env.example`](.env.example) contains `dev-alice-token`, `dev-billing-token`, and `dev-agent-token` for local development only. **Never use these development tokens outside local development.** Use deployment-managed secrets for non-local environments, and serve bearer credentials over TLS.
+
 ---
 
 ## Crawl -> PR -> Enable Workflow
