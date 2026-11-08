@@ -45,6 +45,7 @@ describe('PII Redaction', () => {
       validCardSpaced: 'Visa: 4111 1111 1111 1111',
       validCardDashed: 'Visa: 4111-1111-1111-1111',
       validCardPlain: 'Card: 4111111111111111',
+      validCard13: 'Visa: 4222222222222',
       invalidCardLuhn: 'Card: 4111 1111 1111 1112', // fails Luhn
       otherDigits: 'Product barcode: 12345678901234', // 14 digits, fails Luhn
     };
@@ -53,9 +54,24 @@ describe('PII Redaction', () => {
     expect((res.value as any).validCardSpaced).toBe('Visa: [REDACTED]');
     expect((res.value as any).validCardDashed).toBe('Visa: [REDACTED]');
     expect((res.value as any).validCardPlain).toBe('Card: [REDACTED]');
+    expect((res.value as any).validCard13).toBe('Visa: [REDACTED]');
     expect((res.value as any).invalidCardLuhn).toBe('Card: 4111 1111 1111 1112'); // preserved!
     expect((res.value as any).otherDigits).toBe('Product barcode: 12345678901234'); // preserved!
-    expect(res.count).toBe(3);
+    expect(res.count).toBe(4);
+  });
+
+  it('preserves non-Luhn numeric identifiers from 13 through 19 digits', () => {
+    const input = Object.fromEntries(
+      Array.from({ length: 7 }, (_, index) => {
+        const length = index + 13;
+        return [`barcode${length}`, '1'.repeat(length)];
+      })
+    );
+
+    const res = redact(input, { ...baseConfig, patterns: ['credit_card'] });
+
+    expect(res.value).toEqual(input);
+    expect(res.count).toBe(0);
   });
 
   it('applies key-based redaction with case-insensitive exact matching', () => {
@@ -98,6 +114,29 @@ describe('PII Redaction', () => {
       },
     });
     expect(res.count).toBe(5); // 2 emails + 2 secrets + 1 metadata email
+  });
+
+  it('redacts sensitive keys recursively inside nested arrays', () => {
+    const input = {
+      accounts: [
+        {
+          credentials: [{ api_key: 'key-1' }, { api_key: 'key-2' }],
+          nested: { password: 'pass-1' },
+        },
+      ],
+    };
+
+    const res = redact(input, { ...baseConfig, patterns: [] });
+
+    expect(res.value).toEqual({
+      accounts: [
+        {
+          credentials: [{ api_key: '[REDACTED]' }, { api_key: '[REDACTED]' }],
+          nested: { password: '[REDACTED]' },
+        },
+      ],
+    });
+    expect(res.count).toBe(3);
   });
 
   it('does not mutate the input object', () => {

@@ -112,4 +112,41 @@ paths:
 
     expect(run1.map(t => t.source_hash)).toEqual(run2.map(t => t.source_hash));
   });
+
+  it('changes source_hash when an operation contract changes', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'source-hash-test-'));
+    const specPath = path.join(tmpDir, 'spec.yaml');
+    const writeSpec = (summary: string) => fs.writeFileSync(specPath, `
+openapi: 3.0.0
+info:
+  title: Source hash test
+  version: 1.0.0
+paths:
+  /records/{id}:
+    get:
+      operationId: getRecord
+      summary: ${summary}
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ok
+`);
+
+    try {
+      writeSpec('Get a record');
+      const originalTools = await crawlOpenApiSpec(specPath, 'hash-test');
+      writeSpec('Get a record with its latest status');
+      const changedTools = await crawlOpenApiSpec(specPath, 'hash-test');
+
+      expect(changedTools[0].id).toBe(originalTools[0].id);
+      expect(changedTools[0].source_hash).not.toBe(originalTools[0].source_hash);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

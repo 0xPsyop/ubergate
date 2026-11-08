@@ -114,7 +114,6 @@ async function runBenchmark(): Promise<void> {
     const schemaPayload = JSON.stringify(schemaResult);
 
     const discoveryChars = searchPayload.length + schemaPayload.length;
-    const discoveryTokens = Math.ceil(discoveryChars / 4);
 
     const totalGatewayChars = gatewayMetaChars + discoveryChars;
     const totalGatewayTokens = Math.ceil(totalGatewayChars / 4);

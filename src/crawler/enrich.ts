@@ -18,7 +18,7 @@ export async function enrichToolDescriptions(
   let Anthropic: any;
   try {
     Anthropic = (await import('@anthropic-ai/sdk')).default;
-  } catch (error) {
+  } catch {
     throw new Error('@anthropic-ai/sdk is not installed. Install it with: npm install @anthropic-ai/sdk');
   }
   const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';

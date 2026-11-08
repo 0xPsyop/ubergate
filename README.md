@@ -1,5 +1,7 @@
 # UberGate
 
+[![CI](https://github.com/0xPsyop/ubergate/actions/workflows/ci.yml/badge.svg)](https://github.com/0xPsyop/ubergate/actions/workflows/ci.yml)
+
 Inspired by [Uber Engineering's "Designing MCP Gateway"](https://www.uber.com/gb/en/blog/designing-mcp-gateway/), UberGate is an independent implementation and is not Uber's code. It is an open, governed API-to-MCP gateway that automatically crawls existing REST APIs described by OpenAPI specifications, generates tools that are **disabled by default**, and serves them to AI agents over standard MCP (Model Context Protocol). Cross-cutting concerns—caller authentication, fine-grained RBAC/policy by actor type and risk tier, rate limiting, PII redaction, audit logging, and token-efficient progressive discovery (`search_tools`, `get_schema`, `invoke_tool`)—are enforced in a centralized gateway layer so backend engineering teams never hand-write or insecurely expose MCP wrappers.
 
 > [!NOTE]

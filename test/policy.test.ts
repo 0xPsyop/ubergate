@@ -3,7 +3,7 @@ import { evaluate } from '../src/middleware/policy.js';
 import { makeCaller, makeTool, makePolicy } from './helpers.js';
 
 describe('Policy Evaluation', () => {
-  it('enforces first-match-wins ordering', () => {
+  it('applies the first rule when conflicting rules match', () => {
     // First rule allows read for humans; second rule denies read for all
     const policy = makePolicy('deny', [
       {
@@ -24,6 +24,22 @@ describe('Policy Evaluation', () => {
     const result = evaluate(policy, human, tool);
     expect(result.allowed).toBe(true);
     expect(result.reason).toBe('policy allow');
+
+    const denyFirstPolicy = makePolicy('allow', [
+      {
+        actors: ['human'],
+        risk: ['read'],
+        effect: 'deny',
+      },
+      {
+        actors: ['human'],
+        risk: ['read'],
+        effect: 'allow',
+      },
+    ]);
+    const denyFirstResult = evaluate(denyFirstPolicy, human, tool);
+    expect(denyFirstResult.allowed).toBe(false);
+    expect(denyFirstResult.reason).toBe('policy deny');
   });
 
   it('enforces require_scope and denies if caller lacks scope', () => {
