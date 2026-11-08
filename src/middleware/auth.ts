@@ -4,14 +4,10 @@
 import * as crypto from 'crypto';
 import type { Caller, GatewayConfig } from '../types.js';
 
-export interface AuthResult {
-  caller: Caller;
-}
-
 export function authenticate(
   authHeader: string | undefined,
   gatewayConfig: GatewayConfig
-): AuthResult | null {
+): Caller | null {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
@@ -29,7 +25,11 @@ export function authenticate(
 
     if (tokenHash.length === callerTokenHash.length) {
       if (crypto.timingSafeEqual(tokenHash, callerTokenHash)) {
-        return { caller };
+        return {
+          id: caller.id,
+          type: caller.type,
+          scopes: [...caller.scopes],
+        };
       }
     }
   }

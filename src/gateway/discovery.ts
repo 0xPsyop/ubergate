@@ -18,29 +18,40 @@ export interface SchemaResult {
   input_schema: Record<string, unknown>;
 }
 
+function tokenize(text: string): string[] {
+  return text
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(t => t.length > 0);
+}
+
 function scoreTool(tool: Tool, query: string): number {
-  const queryLower = query.toLowerCase();
-  const idLower = tool.id.toLowerCase();
-  const serverLower = tool.server.toLowerCase();
-  const descriptionLower = tool.description.toLowerCase();
+  const queryTokens = tokenize(query);
+  if (queryTokens.length === 0) {
+    return 0;
+  }
+
+  const idTokens = tokenize(tool.id);
+  const serverTokens = tokenize(tool.server);
+  const descTokens = tokenize(tool.description);
 
   let score = 0;
 
-  // Exact match on id gets highest score
-  if (idLower === queryLower) {
-    score += 100;
-  }
-
-  // Word matches
-  const queryWords = queryLower.split(/\s+/);
-  const idWords = idLower.split(/[^a-z0-9]+/);
-  const serverWords = serverLower.split(/[^a-z0-9]+/);
-  const descriptionWords = descriptionLower.split(/\s+/);
-
-  for (const word of queryWords) {
-    if (idWords.includes(word)) score += 5;
-    if (serverWords.includes(word)) score += 3;
-    if (descriptionWords.includes(word)) score += 2;
+  for (const q of queryTokens) {
+    let tf = 0;
+    for (const t of idTokens) {
+      if (t === q) tf += 3;
+      else if (t.includes(q)) tf += 1;
+    }
+    for (const t of serverTokens) {
+      if (t === q) tf += 2;
+      else if (t.includes(q)) tf += 1;
+    }
+    for (const t of descTokens) {
+      if (t === q) tf += 1;
+    }
+    score += tf;
   }
 
   return score;
@@ -80,7 +91,7 @@ export function searchTools(
     return a.tool.id.localeCompare(b.tool.id);
   });
 
-  // Return top results
+  // Return top results without schemas
   return results.slice(0, limit).map(r => ({
     id: r.tool.id,
     server: r.tool.server,
@@ -100,7 +111,7 @@ export function getSchema(
     return null;
   }
 
-  // Check visibility
+  // Check visibility: enabled, non-deprecated, non-needs_review
   if (!tool.enabled || tool.deprecated || tool.needs_review) {
     return null;
   }

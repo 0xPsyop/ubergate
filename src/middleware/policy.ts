@@ -3,17 +3,19 @@
 
 import type { PolicyConfig, Tool, Caller } from '../types.js';
 
-interface PolicyEvaluationOptions {
+export interface PolicyEvaluationOptions {
   ignoreScope?: boolean;
 }
 
-interface PolicyEvaluationResult {
+export interface PolicyEvaluationResult {
   allowed: boolean;
   reason: string;
 }
 
-function matchesGlob(pattern: string, text: string): boolean {
-  const regexPattern = pattern
+export function matchesGlob(pattern: string, text: string): boolean {
+  // Escape regex special chars except * and ?
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regexPattern = escaped
     .replace(/\*/g, '.*')
     .replace(/\?/g, '.');
   const regex = new RegExp(`^${regexPattern}$`);

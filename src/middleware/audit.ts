@@ -29,47 +29,42 @@ export interface AuditLoggerOptions {
 }
 
 export class AuditLogger {
-  private logger: pino.Logger;
+  private logger?: pino.Logger;
   private inMemoryRecords: AuditRecord[] = [];
   private readonly inMemory: boolean;
 
   constructor(options: AuditLoggerOptions) {
     this.inMemory = options.inMemory ?? false;
 
-    // Ensure log directory exists
-    const logDir = path.dirname(options.auditLogPath);
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
+    if (!this.inMemory) {
+      // Ensure log directory exists
+      const logDir = path.dirname(options.auditLogPath);
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
 
-    if (this.inMemory) {
-      this.logger = pino({
-        level: 'info',
-        transport: {
-          target: 'pino/file',
-          options: { destination: 1 },
-        },
+      const destination = pino.destination({
+        dest: options.auditLogPath,
+        sync: true,
+        mkdir: true,
       });
-    } else {
+
       this.logger = pino({
-        level: 'info',
-        transport: {
-          target: 'pino/file',
-          options: { destination: options.auditLogPath },
-        },
-      });
+        base: undefined,
+        timestamp: false,
+      }, destination);
     }
   }
 
-  private hashArgs(args: unknown): string {
-    const argsJson = JSON.stringify(args);
+  hashArgs(args: unknown): string {
+    const argsJson = JSON.stringify(args ?? {});
     return crypto.createHash('sha256').update(argsJson).digest('hex');
   }
 
   log(record: AuditRecord): void {
     if (this.inMemory) {
       this.inMemoryRecords.push(record);
-    } else {
+    } else if (this.logger) {
       this.logger.info(record);
     }
   }

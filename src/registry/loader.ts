@@ -31,7 +31,7 @@ function interpolateEnvVars(text: string): string {
   });
 }
 
-function loadYamlFile<T>(filePath: string, schema: z.ZodType<T>, configName: string): T {
+function loadYamlFile<T>(filePath: string, schema: z.ZodType<T, any, any>, configName: string): T {
   if (!fs.existsSync(filePath)) {
     throw new Error(`Configuration file not found: ${filePath}`);
   }
@@ -72,7 +72,7 @@ function validateSnapshot(tools: ToolsConfig, policy: PolicyConfig, gateway: Gat
   const tokens = new Set<string>();
   for (const caller of gateway.callers) {
     const token = caller.token ?? (caller.token_env ? process.env[caller.token_env] : undefined);
-    if (token) {
+    if (token !== undefined) {
       if (tokens.has(token)) {
         throw new Error(`Duplicate token found for caller: ${caller.id}`);
       }
@@ -117,9 +117,7 @@ export function loadConfigDir(dir: string): RegistrySnapshot {
   const policy = loadYamlFile(policyPath, PolicyConfigSchema, 'policy');
   const gateway = loadYamlFile(gatewayPath, GatewayConfigSchema, 'gateway');
 
-  validateSnapshot(tools, policy, gateway);
-
-  // Filter out callers without tokens
+  // Filter out callers without tokens first
   const validCallers = gateway.callers.filter(caller => {
     const hasToken = caller.token !== undefined;
     const hasEnvToken = caller.token_env !== undefined && process.env[caller.token_env] !== undefined;
@@ -142,11 +140,16 @@ export function watchConfigDir(dir: string, holder: ConfigHolder, onReload: (err
 
   const reload = () => {
     try {
+      // Atomic reload: parse and validate first.
       const newSnapshot = loadConfigDir(dir);
+      // Only swap if completely valid
       holder.snapshot = newSnapshot;
       onReload();
     } catch (error) {
-      onReload(error instanceof Error ? error : new Error(String(error)));
+      // Keep previous snapshot on invalid config and log error
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.error(`Config reload failed (keeping existing snapshot): ${err.message}`);
+      onReload(err);
     }
   };
 

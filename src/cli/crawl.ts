@@ -2,6 +2,7 @@
 // Control plane component
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { crawlOpenApiSpec } from '../crawler/openapi.js';
 import { mergeTools } from '../crawler/merge.js';
@@ -45,6 +46,12 @@ export async function crawlCommand(options: CrawlOptions): Promise<void> {
 
   // Merge
   const { tools: mergedTools, result } = mergeTools(existingTools, finalCrawled, server, owner);
+
+  // Ensure output directory exists
+  const outDir = path.dirname(out);
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
+  }
 
   // Write output
   const output: ToolsConfig = {

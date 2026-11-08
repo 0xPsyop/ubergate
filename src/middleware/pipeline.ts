@@ -3,7 +3,7 @@
 
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
-import type { Tool, Caller, RegistrySnapshot } from '../types.js';
+import type { Caller, RegistrySnapshot } from '../types.js';
 import { RateLimiter } from './ratelimit.js';
 import { evaluate } from './policy.js';
 import { redact } from './redact.js';
@@ -11,11 +11,11 @@ import { AuditLogger, type AuditDecision } from './audit.js';
 import { project } from '../gateway/projection.js';
 import { executeTool } from '../gateway/executor.js';
 
-const ajv = new Ajv.default({ allErrors: false, strict: false });
-addFormats.default(ajv);
+const ajv = new (Ajv as any).default({ allErrors: false, strict: false });
+(addFormats as any).default(ajv);
 
 export interface PipelineOptions {
-  tool: Tool;
+  toolId: string;
   caller: Caller;
   arguments: Record<string, unknown> | undefined;
   fields?: string[];
@@ -28,23 +28,20 @@ export interface PipelineResult {
   success: boolean;
   data?: unknown;
   error?: string;
-  decision?: AuditDecision;
-  reason?: string;
+  decision: AuditDecision;
+  reason: string;
   status?: number;
   redactions?: number;
 }
 
-const schemaCache = new Map<string, Ajv.ValidateFunction>();
+const schemaCache = new Map<string, any>();
 
-function getValidator(toolId: string, sourceHash: string, schema: Record<string, unknown>): Ajv.ValidateFunction {
+function getValidator(toolId: string, sourceHash: string, schema: Record<string, unknown>): any {
   const cacheKey = `${toolId}:${sourceHash}`;
   let validator = schemaCache.get(cacheKey);
 
   if (!validator) {
     validator = ajv.compile(schema);
-    if (!validator) {
-      throw new Error('Failed to compile schema validator');
-    }
     schemaCache.set(cacheKey, validator);
   }
 
@@ -53,9 +50,9 @@ function getValidator(toolId: string, sourceHash: string, schema: Record<string,
 
 export async function runPipeline(options: PipelineOptions): Promise<PipelineResult> {
   const startTime = Date.now();
-  const { tool, caller, arguments: args, fields, snapshot, rateLimiter, auditLogger } = options;
+  const { toolId, caller, arguments: args, fields, snapshot, rateLimiter, auditLogger } = options;
 
-  // Rate limit
+  // 1. Rate limit check
   if (!rateLimiter.check(caller.id)) {
     const duration = Date.now() - startTime;
     const record = auditLogger.createRecord(
@@ -67,8 +64,7 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
       duration,
       0,
       args,
-      tool.id,
-      tool.risk
+      toolId
     );
     auditLogger.log(record);
     return {
@@ -79,31 +75,32 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     };
   }
 
-  // Lookup tool
-  if (!tool.enabled || tool.deprecated || tool.needs_review) {
+  // 2. Tool lookup (enabled, non-deprecated, non-needs_review)
+  const tool = snapshot.tools.tools.find(t => t.id === toolId);
+  if (!tool || !tool.enabled || tool.deprecated || tool.needs_review) {
     const duration = Date.now() - startTime;
     const record = auditLogger.createRecord(
       caller.id,
       caller.type,
       'invoke_tool',
       'not_found',
-      'Tool not available',
+      'Tool not found or not available',
       duration,
       0,
       args,
-      tool.id,
-      tool.risk
+      toolId,
+      tool?.risk
     );
     auditLogger.log(record);
     return {
       success: false,
       error: 'Tool not found or not available',
       decision: 'not_found',
-      reason: 'Tool not available',
+      reason: 'Tool not found or not available',
     };
   }
 
-  // Policy check
+  // 3. Policy check
   const policyResult = evaluate(snapshot.policy, caller, tool);
   if (!policyResult.allowed) {
     const duration = Date.now() - startTime;
@@ -128,17 +125,20 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     };
   }
 
-  // Validate arguments
+  // 4. Validate arguments against input_schema
   const validator = getValidator(tool.id, tool.source_hash, tool.input_schema);
-  if (!validator(args || {})) {
+  const valid = validator(args || {});
+  if (!valid) {
     const duration = Date.now() - startTime;
-    const errorMessage = validator.errors ? validator.errors[0]?.message : 'Invalid arguments';
+    const errorMessage = validator.errors && validator.errors.length > 0
+      ? `${validator.errors[0].instancePath || 'arguments'} ${validator.errors[0].message}`
+      : 'Invalid arguments';
     const record = auditLogger.createRecord(
       caller.id,
       caller.type,
       'invoke_tool',
       'invalid_args',
-      errorMessage || 'Invalid arguments',
+      errorMessage,
       duration,
       0,
       args,
@@ -148,14 +148,14 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     auditLogger.log(record);
     return {
       success: false,
-      error: errorMessage || 'Invalid arguments',
+      error: `Invalid arguments: ${errorMessage}`,
       decision: 'invalid_args',
-      reason: errorMessage || 'Invalid arguments',
+      reason: errorMessage,
     };
   }
 
-  // Execute
-  let execResult: { data: unknown; status: number };
+  // 5. Execute downstream
+  let execResult: { data: unknown; status: number; isError: boolean };
   try {
     execResult = await executeTool(tool, args || {}, snapshot.gateway);
   } catch (error) {
@@ -182,14 +182,50 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
     };
   }
 
-  // Redact full response
+  // 6. Redact full response
   const redactResult = redact(execResult.data, snapshot.gateway.redaction);
 
-  // Apply projection
-  const projected = fields ? project(redactResult.value, fields) : redactResult.value;
+  // Handle downstream non-2xx
+  if (execResult.isError) {
+    const duration = Date.now() - startTime;
+    const bodyStr = typeof redactResult.value === 'string'
+      ? redactResult.value
+      : JSON.stringify(redactResult.value);
+    const truncatedBody = bodyStr.length > 500 ? bodyStr.slice(0, 500) + '...' : bodyStr;
+    const errorMsg = `Downstream HTTP ${execResult.status}: ${truncatedBody}`;
 
-  // Size check
-  const sizeBytes = JSON.stringify(projected).length;
+    const record = auditLogger.createRecord(
+      caller.id,
+      caller.type,
+      'invoke_tool',
+      'error',
+      errorMsg,
+      duration,
+      redactResult.count,
+      args,
+      tool.id,
+      tool.risk,
+      execResult.status
+    );
+    auditLogger.log(record);
+    return {
+      success: false,
+      error: errorMsg,
+      decision: 'error',
+      reason: errorMsg,
+      status: execResult.status,
+      redactions: redactResult.count,
+    };
+  }
+
+  // 7. Apply projection
+  const projected = fields && fields.length > 0
+    ? project(redactResult.value, fields)
+    : redactResult.value;
+
+  // 8. Size check
+  const projectedStr = JSON.stringify(projected);
+  const sizeBytes = Buffer.byteLength(projectedStr, 'utf8');
   if (sizeBytes > snapshot.gateway.max_response_bytes) {
     const duration = Date.now() - startTime;
     const record = auditLogger.createRecord(
@@ -202,7 +238,8 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
       redactResult.count,
       args,
       tool.id,
-      tool.risk
+      tool.risk,
+      execResult.status
     );
     auditLogger.log(record);
     return {
@@ -210,10 +247,12 @@ export async function runPipeline(options: PipelineOptions): Promise<PipelineRes
       error: 'Response too large',
       decision: 'error',
       reason: 'Response too large',
+      status: execResult.status,
+      redactions: redactResult.count,
     };
   }
 
-  // Success audit
+  // 9. Success audit
   const duration = Date.now() - startTime;
   const record = auditLogger.createRecord(
     caller.id,

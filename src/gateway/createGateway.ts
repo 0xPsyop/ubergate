@@ -2,6 +2,8 @@
 // Data plane component
 
 import express from 'express';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { RegistrySnapshot } from '../types.js';
 import { ConfigHolder, loadConfigDir, watchConfigDir } from '../registry/loader.js';
@@ -18,20 +20,21 @@ export interface GatewayOptions {
 
 export interface GatewayResult {
   app: express.Express;
-  server: ReturnType<express.Application['listen']>;
-  snapshot: RegistrySnapshot;
+  server: Server;
+  readonly snapshot: RegistrySnapshot;
   close: () => Promise<void>;
-  url: string;
+  readonly url: string;
 }
 
 export function createGateway(options: GatewayOptions): GatewayResult {
   const app = express();
-  const port = options.port ?? 3000;
   const configDir = options.configDir;
 
   // Load initial config
   const holder = new ConfigHolder();
   holder.snapshot = loadConfigDir(configDir);
+
+  const port = options.port !== undefined ? options.port : (holder.snapshot.gateway.port ?? 3000);
 
   // Create shared rate limiter and audit logger
   const rateLimiter = new RateLimiter({
@@ -67,17 +70,15 @@ export function createGateway(options: GatewayOptions): GatewayResult {
   // MCP endpoint
   app.post('/mcp', async (req, res) => {
     const authHeader = req.headers.authorization;
-    const authResult = authenticate(authHeader, holder.snapshot.gateway);
+    const caller = authenticate(authHeader, holder.snapshot.gateway);
 
-    if (!authResult) {
+    if (!caller) {
       res.setHeader('WWW-Authenticate', 'Bearer');
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    const { caller } = authResult;
-
-    // Create per-request MCP server
+    // Create per-request MCP server and stateless transport
     const mcpServer = createMcpServer(caller, holder.snapshot, rateLimiter, auditLogger);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -94,7 +95,7 @@ export function createGateway(options: GatewayOptions): GatewayResult {
     });
   });
 
-  // Unsupported methods
+  // Unsupported methods return 405 JSON-RPC error
   app.get('/mcp', (_req, res) => {
     res.status(405).json({
       jsonrpc: '2.0',
@@ -118,9 +119,7 @@ export function createGateway(options: GatewayOptions): GatewayResult {
   });
 
   // Start server
-  const server = app.listen(port, () => {
-    console.log(`Gateway listening on port ${port}`);
-  });
+  const server = app.listen(port);
 
   const close = async (): Promise<void> => {
     if (unwatch) {
@@ -134,13 +133,19 @@ export function createGateway(options: GatewayOptions): GatewayResult {
     });
   };
 
-  const url = `http://localhost:${port}`;
-
   return {
     app,
     server,
-    snapshot: holder.snapshot,
+    get snapshot() {
+      return holder.snapshot;
+    },
     close,
-    url,
+    get url() {
+      const addr = server.address() as AddressInfo | null;
+      if (addr && typeof addr === 'object' && addr.port) {
+        return `http://localhost:${addr.port}`;
+      }
+      return `http://localhost:${port}`;
+    },
   };
 }

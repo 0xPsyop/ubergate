@@ -44,50 +44,45 @@ function redactString(
 
   if (patterns.includes('email')) {
     const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-    const matches = result.match(emailRegex);
-    if (matches) {
-      count += matches.length;
-      result = result.replace(emailRegex, replacement);
-    }
-  }
-
-  if (patterns.includes('phone')) {
-    // International format: +1234567890 or +1 234 567 8900
-    // US format: (123) 456-7890 or 123-456-7890 or 1234567890
-    const phoneRegex = /\+?[\d\s\-()]{10,}/g;
-    const matches = result.match(phoneRegex);
-    if (matches) {
-      count += matches.filter(m => m.replace(/\D/g, '').length >= 10).length;
-      result = result.replace(phoneRegex, m => {
-        if (m.replace(/\D/g, '').length >= 10) {
-          return replacement;
-        }
-        return m;
-      });
-    }
+    result = result.replace(emailRegex, () => {
+      count++;
+      return replacement;
+    });
   }
 
   if (patterns.includes('ssn')) {
-    const ssnRegex = /\d{3}-\d{2}-\d{4}/g;
-    const matches = result.match(ssnRegex);
-    if (matches) {
-      count += matches.length;
-      result = result.replace(ssnRegex, replacement);
-    }
+    const ssnRegex = /\b\d{3}-\d{2}-\d{4}\b/g;
+    result = result.replace(ssnRegex, () => {
+      count++;
+      return replacement;
+    });
   }
 
   if (patterns.includes('credit_card')) {
-    const cardRegex = /[\d\s\-]{13,19}/g;
-    const matches = result.match(cardRegex);
-    if (matches) {
-      for (const match of matches) {
-        const digits = match.replace(/\D/g, '');
-        if (luhnCheck(digits)) {
-          count++;
-          result = result.replace(match, replacement);
-        }
+    // 13-19 digits optionally separated by spaces or dashes
+    const cardRegex = /\b(?:\d[ -]*?){13,19}\b/g;
+    result = result.replace(cardRegex, (match) => {
+      const digits = match.replace(/\D/g, '');
+      if (digits.length >= 13 && digits.length <= 19 && luhnCheck(digits)) {
+        count++;
+        return replacement;
       }
-    }
+      return match;
+    });
+  }
+
+  if (patterns.includes('phone')) {
+    // US: (123) 456-7890, 123-456-7890, +1-123-456-7890
+    // Int: +44 20 7123 4567, +1-555-010-1234
+    const phoneRegex = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\+\d[\d\s\-()]{8,}\d\b/g;
+    result = result.replace(phoneRegex, (match) => {
+      const digits = match.replace(/\D/g, '');
+      if (digits.length >= 10 && digits.length <= 15) {
+        count++;
+        return replacement;
+      }
+      return match;
+    });
   }
 
   return { value: result, count };
@@ -102,13 +97,12 @@ function redactValue(
     return { value, count: 0 };
   }
 
-  if (typeof value === 'string') {
-    // Check if key-based redaction applies
-    if (parentKey && config.keys.includes(parentKey.toLowerCase())) {
-      return { value: config.replacement, count: 1 };
-    }
+  // Key-based redaction: case-insensitive exact match replaces whole value
+  if (parentKey && config.keys.some(k => k.toLowerCase() === parentKey.toLowerCase())) {
+    return { value: config.replacement, count: 1 };
+  }
 
-    // Pattern-based redaction
+  if (typeof value === 'string') {
     return redactString(value, config.patterns, config.replacement);
   }
 
@@ -119,7 +113,7 @@ function redactValue(
   if (Array.isArray(value)) {
     let totalCount = 0;
     const newArray = value.map(item => {
-      const result = redactValue(item, config, parentKey);
+      const result = redactValue(item, config, null);
       totalCount += result.count;
       return result.value;
     });

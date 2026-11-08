@@ -2,9 +2,13 @@
 // Standalone Express server for testing the gateway
 
 import express from 'express';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
+import { fileURLToPath } from 'url';
+import * as path from 'path';
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '4000', 10);
+const DEFAULT_PORT = parseInt(process.env.PORT || '4000', 10);
 
 app.use(express.json());
 
@@ -106,10 +110,12 @@ app.get('/orders', (req, res) => {
 });
 
 app.post('/orders', (req, res) => {
+  const items = req.body.items || [];
+  const total = items.reduce((sum: number, item: any) => sum + item.qty * item.price, 0);
   const newOrder = {
     id: String(orders.length + 101),
     ...req.body,
-    total: req.body.items.reduce((sum: number, item: any) => sum + item.qty * item.price, 0),
+    total,
   };
   orders.push(newOrder);
   res.status(201).json(newOrder);
@@ -124,21 +130,39 @@ app.get('/orders/:id', (req, res) => {
   res.json(order);
 });
 
-// Start server when run directly
-export function startDemoApi(port?: number): { close: () => void; port: number } {
-  const actualPort = port || PORT;
-  const server = app.listen(actualPort, () => {
-    console.log(`Demo API listening on port ${actualPort}`);
+export function startDemoApi(port?: number): { close: () => Promise<void>; port: number; server: Server } {
+  const listenPort = port !== undefined ? port : DEFAULT_PORT;
+  const server = app.listen(listenPort, () => {
+    const addr = server.address() as AddressInfo | null;
+    const actual = addr && typeof addr === 'object' ? addr.port : listenPort;
+    console.log(`Demo API listening on port ${actual}`);
   });
 
+  const addr = server.address() as AddressInfo | null;
+  const actualPort = addr && typeof addr === 'object' ? addr.port : listenPort;
+
   return {
-    close: () => {
-      server.close();
+    close: async () => {
+      await new Promise<void>((resolve, reject) => {
+        server.close(err => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
     },
     port: actualPort,
+    server,
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  startDemoApi();
+if (process.argv[1]) {
+  try {
+    const currentFilePath = fileURLToPath(import.meta.url);
+    const entryPath = path.resolve(process.argv[1]);
+    if (currentFilePath === entryPath) {
+      startDemoApi();
+    }
+  } catch {
+    // Ignore URL resolution errors
+  }
 }

@@ -10,49 +10,52 @@ export function project(data: unknown, paths: string[]): unknown {
     return data;
   }
 
+  if (typeof data !== 'object') {
+    return data;
+  }
+
+  function applyPath(target: any, source: any, segments: string[]): void {
+    if (source === null || source === undefined) {
+      return;
+    }
+
+    if (Array.isArray(source)) {
+      for (let i = 0; i < source.length; i++) {
+        if (!target[i]) {
+          target[i] = Array.isArray(source[i]) ? [] : {};
+        }
+        applyPath(target[i], source[i], segments);
+      }
+      return;
+    }
+
+    if (typeof source !== 'object') {
+      return;
+    }
+
+    const [head, ...tail] = segments;
+    if (!(head in source)) {
+      return;
+    }
+
+    if (tail.length === 0) {
+      target[head] = source[head];
+    } else {
+      if (!(head in target)) {
+        target[head] = Array.isArray(source[head]) ? [] : {};
+      }
+      applyPath(target[head], source[head], tail);
+    }
+  }
+
   if (Array.isArray(data)) {
     return data.map(item => project(item, paths));
   }
 
-  if (typeof data === 'object') {
-    const result: Record<string, unknown> = {};
-
-    for (const path of paths) {
-      const segments = path.split('.');
-      let current: unknown = data;
-      let currentResult: Record<string, unknown> = result;
-
-      for (let i = 0; i < segments.length; i++) {
-        const segment = segments[i];
-
-        if (typeof current !== 'object' || current === null) {
-          break;
-        }
-
-        const value = (current as Record<string, unknown>)[segment];
-        if (value === undefined) {
-          break;
-        }
-
-        if (i === segments.length - 1) {
-          // Last segment - set the value
-          currentResult[segment] = value;
-        } else {
-          // Intermediate segment - ensure structure exists
-          if (currentResult[segment] === undefined) {
-            currentResult[segment] = {};
-          }
-          if (typeof currentResult[segment] !== 'object' || currentResult[segment] === null) {
-            break;
-          }
-          currentResult = currentResult[segment] as Record<string, unknown>;
-          current = value;
-        }
-      }
-    }
-
-    return result;
+  const result: Record<string, unknown> = {};
+  for (const path of paths) {
+    applyPath(result, data, path.split('.'));
   }
 
-  return data;
+  return result;
 }

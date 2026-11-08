@@ -12,8 +12,16 @@ export async function validateCommand(options: ValidateOptions): Promise<void> {
 
   try {
     const snapshot = loadConfigDir(configDir);
-
     const errors: string[] = [];
+
+    // Check duplicate tool ids
+    const toolIds = new Set<string>();
+    for (const tool of snapshot.tools.tools) {
+      if (toolIds.has(tool.id)) {
+        errors.push(`Duplicate tool id: ${tool.id}`);
+      }
+      toolIds.add(tool.id);
+    }
 
     // Check for enabled tools with unassigned owner
     for (const tool of snapshot.tools.tools) {

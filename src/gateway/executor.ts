@@ -6,6 +6,7 @@ import type { Tool, GatewayConfig } from '../types.js';
 export interface ExecutionResult {
   data: unknown;
   status: number;
+  isError: boolean;
 }
 
 export async function executeTool(
@@ -18,12 +19,8 @@ export async function executeTool(
     throw new Error(`Server not found: ${tool.server}`);
   }
 
-  // Build URL with path params
-  let url = serverConfig.base_url;
-  const path = tool.request.path;
-
   // Substitute path params
-  let resolvedPath = path;
+  let resolvedPath = tool.request.path;
   for (const param of tool.request.path_params) {
     const value = args[param];
     if (value === undefined || value === null) {
@@ -32,7 +29,10 @@ export async function executeTool(
     resolvedPath = resolvedPath.replace(`{${param}}`, encodeURIComponent(String(value)));
   }
 
-  url += resolvedPath;
+  // Build full URL
+  const baseUrl = serverConfig.base_url.replace(/\/+$/, '');
+  const pathPrefix = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
+  let url = `${baseUrl}${pathPrefix}`;
 
   // Build query params
   const queryParams = new URLSearchParams();
@@ -49,8 +49,9 @@ export async function executeTool(
     }
   }
 
-  if (queryParams.toString()) {
-    url += `?${queryParams.toString()}`;
+  const queryString = queryParams.toString();
+  if (queryString) {
+    url += `?${queryString}`;
   }
 
   // Prepare request
@@ -58,10 +59,14 @@ export async function executeTool(
   const timeout = setTimeout(() => controller.abort(), gatewayConfig.request_timeout_ms);
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    'Accept': 'application/json, text/plain, */*',
   };
 
-  const body = tool.request.has_body && args.body ? JSON.stringify(args.body) : undefined;
+  let body: string | undefined;
+  if (tool.request.has_body && args.body !== undefined) {
+    body = JSON.stringify(args.body);
+    headers['Content-Type'] = 'application/json';
+  }
 
   try {
     const response = await fetch(url, {
@@ -73,16 +78,31 @@ export async function executeTool(
 
     clearTimeout(timeout);
 
-    const contentType = response.headers.get('content-type') || '';
-    let data: unknown;
-
-    if (contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
+    const contentLength = response.headers.get('content-length');
+    if (contentLength && parseInt(contentLength, 10) > gatewayConfig.max_response_bytes) {
+      throw new Error(`Response exceeds max_response_bytes (${contentLength} > ${gatewayConfig.max_response_bytes})`);
     }
 
-    return { data, status: response.status };
+    const rawText = await response.text();
+    const byteLength = Buffer.byteLength(rawText, 'utf8');
+    if (byteLength > gatewayConfig.max_response_bytes) {
+      throw new Error(`Response exceeds max_response_bytes (${byteLength} > ${gatewayConfig.max_response_bytes})`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    let data: unknown;
+    if (contentType.includes('application/json') && rawText.length > 0) {
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = rawText;
+      }
+    } else {
+      data = rawText;
+    }
+
+    const isError = !response.ok;
+    return { data, status: response.status, isError };
   } catch (error) {
     clearTimeout(timeout);
     throw error;
