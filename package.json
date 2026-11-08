@@ -16,6 +16,7 @@
     "demo-api": "tsx examples/demo-api/server.ts",
     "crawl:demo": "tsx src/cli/index.ts crawl examples/demo-api/openapi.yaml --server demo --out config/tools.yaml",
     "validate": "tsx src/cli/index.ts validate",
+    "review:tool-enable": "tsx .claude/skills/tool-enable-review/scripts/check-tool-diff.ts",
     "bench": "tsx bench/compare.ts",
     "benchmark:tokens": "tsx scripts/benchmark-tokens.ts",
     "start": "node dist/index.js"
