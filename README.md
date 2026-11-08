@@ -1,15 +1,15 @@
-# MCP Gateway
+# UberGate
 
 <!-- demo.gif -->
 
-**MCP Gateway** is an open, governed API-to-MCP gateway inspired by Uber Engineering's *"Designing MCP Gateway"*. It automatically crawls existing REST APIs described by OpenAPI specifications, generates tools that are **disabled by default**, and serves them to AI agents over standard MCP (Model Context Protocol). Cross-cutting concerns—caller authentication, fine-grained RBAC/policy by actor type and risk tier, rate limiting, PII redaction, audit logging, and token-efficient progressive discovery (`search_tools`, `get_schema`, `invoke_tool`)—are enforced in a centralized gateway layer so backend engineering teams never hand-write or insecurely expose MCP wrappers.
+**UberGate** is an open, governed API-to-MCP gateway inspired by Uber Engineering's _"Designing MCP Gateway"_. It automatically crawls existing REST APIs described by OpenAPI specifications, generates tools that are **disabled by default**, and serves them to AI agents over standard MCP (Model Context Protocol). Cross-cutting concerns—caller authentication, fine-grained RBAC/policy by actor type and risk tier, rate limiting, PII redaction, audit logging, and token-efficient progressive discovery (`search_tools`, `get_schema`, `invoke_tool`)—are enforced in a centralized gateway layer so backend engineering teams never hand-write or insecurely expose MCP wrappers.
 
 > [!NOTE]
 > Please update `.github/CODEOWNERS` with your organization or GitHub username (`@YOUR_GITHUB_USERNAME`) to enforce code reviews on tools configuration changes.
 
 ---
 
-## Why MCP Gateway?
+## Why UberGate?
 
 As enterprises connect LLM agents to internal infrastructure, exposing internal services presents three critical challenges described in Uber's architecture:
 
@@ -71,14 +71,16 @@ npm install
 cp .env.example .env
 ```
 
-### 2. Start the Demo API and Gateway
+### 2. Start the Demo API and UberGate
 
 In terminal 1 (Demo API with fake PII data on port 4000):
+
 ```bash
 npm run demo-api
 ```
 
-In terminal 2 (MCP Gateway on port 3000):
+In terminal 2 (UberGate on port 3000):
+
 ```bash
 npm run dev
 ```
@@ -103,6 +105,7 @@ curl -X POST http://localhost:3000/mcp \
 ```
 
 #### Connecting from Claude Desktop / Cursor
+
 Configure your MCP client settings with HTTP transport and authorization headers:
 
 ```json
@@ -124,13 +127,16 @@ Configure your MCP client settings with HTTP transport and authorization headers
 
 1. **Crawl an OpenAPI Specification:**
    Run the crawler against any OpenAPI 3.x spec file:
+
    ```bash
    npm run crawl:demo -- --owner @team-demo
    ```
+
    All generated tools are created with `enabled: false` and `needs_review: false`.
 
 2. **Open a Pull Request:**
    A human engineer reviews the endpoint and enables it explicitly in Git:
+
    ```diff
    --- a/config/tools.yaml
    +++ b/config/tools.yaml
@@ -161,51 +167,10 @@ Configure your MCP client settings with HTTP transport and authorization headers
 
 ---
 
-## Benchmark Results: MCP Gateway vs Naive MCP Server
-
-Date of benchmark run: **2026-11-08**
-
-### Methodology
-- **Synthetic API Catalog**: 30 resources with 4 CRUD operations each (= **120 operations**), generated dynamically by `bench/gen-large-spec.ts`.
-- **Token Estimation Heuristic**: `ceil(characters / 4)` (standard LLM token approximation rule-of-thumb).
-- **Naive MCP Baseline**: Conventional MCP server exposing all 120 endpoints in the initial `tools/list` catalog payload.
-- **MCP Gateway**: Exposes only 3 lightweight discovery meta-tools (`search_tools`, `get_schema`, `invoke_tool`).
-- **Discovery Flow**: Simulates an agent performing `search_tools { query: "user", limit: 8 }` followed by `get_schema { tool_id: "enterprise.createUser" }`.
-- **Response Projection**: Demonstrates selective field trimming on downstream responses.
-
-### 1. Catalog Context Consumption (Initial `tools/list`)
-
-| Architecture | Characters | Est. Tokens | Initial Context Reduction |
-| :--- | :--- | :--- | :--- |
-| **Naive MCP (`tools/list` all 120 tools)** | 58,469 | **14,618** | Baseline (0.0%) |
-| **MCP Gateway (`tools/list` 3 meta-tools)** | 876 | **219** | **-98.5%** |
-
-### 2. End-to-End Task Flow Comparison
-
-| Step / Flow | Payload | Characters | Est. Tokens |
-| :--- | :--- | :--- | :--- |
-| **Naive MCP: Initial Catalog** | 120 tool schemas upfront | 58,469 | 14,618 |
-| **Gateway: Initial Catalog** | 3 meta-tools (`search_tools`, `get_schema`, `invoke_tool`) | 876 | 219 |
-| **Gateway: `search_tools` Result** | 8 tool summaries (id, server, risk, description) | 723 | 181 |
-| **Gateway: `get_schema` Result** | Full schema for 1 chosen tool | 1,015 | 254 |
-| **Gateway: Total Discovery Flow** | Initial catalog + search + schema | **2,614** | **654** |
-
-> **Net Token Savings on Discovery Flow: 95.5% reduction** (654 vs 14,618 tokens).
-
-### 3. Response Projection Savings
-
-| Response Type | Payload | Characters | Est. Tokens | Size Reduction |
-| :--- | :--- | :--- | :--- | :--- |
-| **Full Downstream Response** | Full resource with metadata & arrays | 490 | 123 | Baseline |
-| **Projected Response (`name, status`)** | Only requested fields retained | 41 | 11 | **-91.1%** |
-
-*Generated automatically by `npm run bench` (`tsx bench/compare.ts`).*
-
----
-
 ## What I Intentionally Cut
 
 To preserve clean separation of concerns and maintain a focused showcase, the following advanced capabilities are deliberately deferred to future work:
+
 - Distributed catalog crawling & multi-region sync
 - gRPC / Protocol Buffers & Apache Thrift protocol translation
 - Native MCP server reverse proxying
