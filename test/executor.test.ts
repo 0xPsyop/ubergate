@@ -86,4 +86,20 @@ describe('HTTP executor URL construction', () => {
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('does not follow downstream redirects to a different origin', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('redirect', {
+      status: 302,
+      headers: { location: 'https://evil.example/target' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const tool = makeTool('demo.getUser', 'read');
+
+    const result = await executeTool(tool, {}, makeGatewayConfig());
+
+    expect(result.status).toBe(302);
+    expect(result.isError).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ redirect: 'manual' });
+  });
 });

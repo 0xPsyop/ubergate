@@ -176,7 +176,7 @@ The checked-in [`.env.example`](.env.example) contains `dev-alice-token`, `dev-b
 ## Governance: Policy & PII Redaction
 
 - **Centralized Policy Engine (`config/policy.yaml`)**:
-  Rules follow first-match-wins semantics over caller type (`human`, `service`, `agent`), tool risk tier (`read`, `write`, `destructive`), glob tool patterns, and required OAuth scopes. For instance, `helper-agent` can read and write, but is strictly denied destructive tools like `demo.deleteUser`.
+  Rules follow first-match-wins semantics over caller type (`human`, `service`, `agent`), tool risk tier (`read`, `write`, `destructive`), glob tool patterns, and required caller scopes. For instance, `helper-agent` can read and write, but is strictly denied destructive tools like `demo.deleteUser`.
 - **Automatic PII Redaction (`config/gateway.yaml`)**:
   Responses are inspected prior to projection:
   - **Pattern Redaction**: Emails, phone numbers (US and international), SSNs (`\d{3}-\d{2}-\d{4}`), and 13–19 digit credit cards validated against the **Luhn algorithm**. Non-card numeric identifiers (like barcodes) are safely preserved.
@@ -186,17 +186,16 @@ The checked-in [`.env.example`](.env.example) contains `dev-alice-token`, `dev-b
 
 ---
 
-## What I Intentionally Cut
+## Limitations
 
-To preserve clean separation of concerns and maintain a focused showcase, the following advanced capabilities are deliberately deferred to future work:
+- Regex and Luhn-based redaction can miss names, addresses, and other PII in free text. Key-based redaction only handles configured key names.
+- Rate-limit buckets are stored in process memory. Limits are not shared across instances and reset when an instance restarts.
+- Downstream tool responses are not scanned for prompt injection. Attacker-controlled text in a response can influence an agent that consumes it.
+- Authentication uses static bearer tokens with no built-in expiry, rotation, or identity-provider integration. TLS must be provided by the deployment environment.
+- When a downstream response omits or misstates `Content-Length`, the executor reads the body before enforcing `max_response_bytes`, so a large response can consume more memory than the configured limit.
+- Distributed catalog synchronization, gRPC/Protocol Buffers or Thrift translation, native MCP server proxying, and third-party token exchange are not implemented.
 
-- Distributed catalog crawling & multi-region sync
-- gRPC / Protocol Buffers & Apache Thrift protocol translation
-- Native MCP server reverse proxying
-- Third-party token exchange & dynamic OAuth2 authorization flows
-- Prompt-injection scanning of downstream tool responses
-
-Read the comprehensive technical discussion in [`docs/roadmap.md`](docs/roadmap.md) and design rationales in [`docs/design-decisions.md`](docs/design-decisions.md).
+See [`docs/roadmap.md`](docs/roadmap.md) for additional deferred work and [`docs/design-decisions.md`](docs/design-decisions.md) for design rationale.
 
 ---
 

@@ -24,8 +24,11 @@ function assertSafePathSegment(value: string, label: string): void {
     let next: string;
     try {
       next = decodeURIComponent(decoded);
-    } catch {
-      throw new Error(`${label} contains invalid percent encoding`);
+    } catch (error) {
+      if (error instanceof URIError) {
+        throw new Error(`${label} contains invalid percent encoding`);
+      }
+      throw error;
     }
 
     if (next === decoded) {
@@ -119,6 +122,7 @@ export async function executeTool(
       headers,
       body,
       signal: controller.signal,
+      redirect: 'manual',
     });
 
     clearTimeout(timeout);
