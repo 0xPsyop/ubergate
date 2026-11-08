@@ -11,9 +11,22 @@ Inspired by [Uber Engineering's "Designing MCP Gateway"](https://www.uber.com/gb
 
 As enterprises connect LLM agents to internal infrastructure, exposing internal services presents three critical challenges described in Uber's architecture:
 
-1. **Catalog Context Bloat**: Exposing hundreds of REST endpoints directly via conventional MCP `tools/list` floods LLM context windows (consuming 15,000+ tokens before the agent even begins reasoning), degrading inference speed and agent accuracy.
+1. **Catalog Context Bloat**: A conventional `tools/list` response grows with the number and size of endpoint schemas. In the generated 200-endpoint scenario measured below, the initial catalog is estimated at 19,171 tokens using a character-based heuristic; the same catalog is synthetic, not a production API.
 2. **Accidental Exposure & Lack of Governance**: Auto-generating tools directly to agents risks unintentional invocation of write or destructive endpoints, leaks raw PII (social security numbers, credit cards, phones) into model prompts, and lacks per-caller authorization.
 3. **Control Plane / Data Plane Decoupling**: Hand-coding MCP servers per team creates maintenance sprawl and inconsistent security controls. A declarative, GitOps-driven control plane ensures that discovery does not mean exposure: tools require human review in pull requests to be enabled.
+
+---
+
+## Token-size measurement
+
+Run `npm run benchmark:tokens` to reproduce these measurements. The script serializes the tool definitions and request/response payloads as JSON, then estimates tokens as `ceil(UTF-16 character count / 4)`. This is a rough estimate, not output from a model tokenizer. Full-flow totals include the initial `tools/list`, tool-call requests, and tool-call responses. The `demo.getUser` invocation executes against the local demo API; the 200-endpoint catalog is generated synthetic OpenAPI.
+
+| Scenario | Enabled tools | Conventional catalog | Progressive catalog | Conventional full flow | Progressive full flow | Estimated full-flow change |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Demo API configuration | 6 | 1,502 chars / 376 tokens | 876 chars / 219 tokens | 1,759 chars / 440 tokens | 2,413 chars / 604 tokens | 37.3% more |
+| Synthetic OpenAPI catalog | 200 | 76,681 chars / 19,171 tokens | 876 chars / 219 tokens | 76,938 chars / 19,235 tokens | 3,315 chars / 829 tokens | 95.7% fewer |
+
+The demo API catalog is small enough that the full progressive flow costs more in this estimate. The synthetic result shows the effect of catalog size; it should not be read as a measurement of a real API or a model's exact tokenization.
 
 ---
 
@@ -55,7 +68,7 @@ flowchart TD
 
 ---
 
-## 60-Second Quickstart
+## Quickstart
 
 ### 1. Install & Configure
 

@@ -16,6 +16,7 @@
     "crawl:demo": "tsx src/cli/index.ts crawl examples/demo-api/openapi.yaml --server demo --out config/tools.yaml",
     "validate": "tsx src/cli/index.ts validate",
     "bench": "tsx bench/compare.ts",
+    "benchmark:tokens": "tsx scripts/benchmark-tokens.ts",
     "start": "node dist/index.js"
   },
   "keywords": [
