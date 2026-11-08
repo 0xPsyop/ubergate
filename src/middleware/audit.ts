@@ -20,11 +20,12 @@ export interface AuditRecord {
   status?: number;
   duration_ms: number;
   redactions: number;
-  args_sha256: string;
+  args_hmac_sha256: string;
 }
 
 export interface AuditLoggerOptions {
   auditLogPath: string;
+  hmacKey: string;
   inMemory?: boolean;
 }
 
@@ -32,9 +33,15 @@ export class AuditLogger {
   private logger?: pino.Logger;
   private inMemoryRecords: AuditRecord[] = [];
   private readonly inMemory: boolean;
+  private readonly hmacKey: string;
 
   constructor(options: AuditLoggerOptions) {
+    if (Buffer.byteLength(options.hmacKey, 'utf8') < 32) {
+      throw new Error('AUDIT_HMAC_KEY must be at least 32 bytes');
+    }
+
     this.inMemory = options.inMemory ?? false;
+    this.hmacKey = options.hmacKey;
 
     if (!this.inMemory) {
       // Ensure log directory exists
@@ -58,7 +65,7 @@ export class AuditLogger {
 
   hashArgs(args: unknown): string {
     const argsJson = JSON.stringify(args ?? {});
-    return crypto.createHash('sha256').update(argsJson).digest('hex');
+    return crypto.createHmac('sha256', this.hmacKey).update(argsJson).digest('hex');
   }
 
   log(record: AuditRecord): void {
@@ -102,7 +109,7 @@ export class AuditLogger {
       status,
       duration_ms: durationMs,
       redactions,
-      args_sha256: this.hashArgs(args),
+      args_hmac_sha256: this.hashArgs(args),
     };
   }
 }

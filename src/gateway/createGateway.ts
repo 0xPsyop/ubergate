@@ -34,6 +34,11 @@ export function createGateway(options: GatewayOptions): GatewayResult {
   const holder = new ConfigHolder();
   holder.snapshot = loadConfigDir(configDir);
 
+  const auditHmacKey = process.env.AUDIT_HMAC_KEY;
+  if (!auditHmacKey || Buffer.byteLength(auditHmacKey, 'utf8') < 32) {
+    throw new Error('AUDIT_HMAC_KEY must be set to a secret of at least 32 bytes before starting the gateway');
+  }
+
   const port = options.port !== undefined ? options.port : (holder.snapshot.gateway.port ?? 3000);
 
   // Create shared rate limiter and audit logger
@@ -44,6 +49,7 @@ export function createGateway(options: GatewayOptions): GatewayResult {
 
   const auditLogger = new AuditLogger({
     auditLogPath: holder.snapshot.gateway.audit_log_path,
+    hmacKey: auditHmacKey,
   });
 
   // Watch config if enabled

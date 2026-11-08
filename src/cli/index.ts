@@ -2,6 +2,7 @@
 // CLI entry point with commander
 // Control plane component
 
+import 'dotenv/config';
 import { Command } from 'commander';
 import { crawlCommand, type CrawlOptions } from './crawl.js';
 import { validateCommand, type ValidateOptions } from './validate.js';

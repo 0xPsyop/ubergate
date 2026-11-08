@@ -1,6 +1,7 @@
 // Main entry point for the gateway server
 // Data plane component
 
+import 'dotenv/config';
 import { createGateway } from './gateway/createGateway.js';
 
 const configDir = process.env.GATEWAY_CONFIG_DIR || './config';

@@ -62,7 +62,7 @@ flowchart TD
         Executor --> Downstream["Downstream REST APIs"]
         Downstream --> Redactor["PII Redactor (Regex + Luhn + Keys)"]
         Redactor --> Projection["Response Projection (Dot Paths)"]
-        Projection --> Audit["Audit Logger (SHA256 Args)"]
+        Projection --> Audit["Audit Logger (HMAC-SHA256 Args)"]
     end
 ```
 
@@ -180,7 +180,7 @@ The checked-in [`.env.example`](.env.example) contains `dev-alice-token`, `dev-b
   - **Pattern Redaction**: Emails, phone numbers (US and international), SSNs (`\d{3}-\d{2}-\d{4}`), and 13–19 digit credit cards validated against the **Luhn algorithm**. Non-card numeric identifiers (like barcodes) are safely preserved.
   - **Key-Based Redaction**: Case-insensitive matching replaces sensitive values for keys like `password`, `ssn`, `token`, `secret`, `api_key`, and `cardNumber`.
 - **Zero Raw PII in Audit Logs**:
-  Tool arguments and payloads are never logged raw. Only a SHA-256 hash of the arguments is stored in `logs/audit.jsonl`.
+  Tool arguments and payloads are never logged raw. Only an HMAC-SHA256 digest of serialized arguments is stored in `logs/audit.jsonl`, keyed by `AUDIT_HMAC_KEY`. The key must be at least 32 bytes; gateway startup fails if it is missing or too short.
 
 ---
 

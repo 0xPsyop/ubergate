@@ -18,8 +18,11 @@ describe('Gateway E2E Integration', () => {
 
   const aliceToken = 'test-alice-token';
   const agentToken = 'test-agent-token';
+  const originalAuditHmacKey = process.env.AUDIT_HMAC_KEY;
 
   beforeAll(async () => {
+    process.env.AUDIT_HMAC_KEY = 'test-audit-hmac-key-with-at-least-32-bytes';
+
     // 1. Start demo API on ephemeral port
     demoApi = startDemoApi(0);
 
@@ -114,6 +117,11 @@ describe('Gateway E2E Integration', () => {
       fs.rmSync(tempConfigDir, { recursive: true, force: true });
     } catch {
       // Ignore cleanup error
+    }
+    if (originalAuditHmacKey === undefined) {
+      delete process.env.AUDIT_HMAC_KEY;
+    } else {
+      process.env.AUDIT_HMAC_KEY = originalAuditHmacKey;
     }
   });
 
@@ -354,7 +362,8 @@ describe('Gateway E2E Integration', () => {
       expect(record).toHaveProperty('caller');
       expect(record).toHaveProperty('action');
       expect(record).toHaveProperty('decision');
-      expect(record).toHaveProperty('args_sha256');
+      expect(record).toHaveProperty('args_hmac_sha256');
+      expect(record.args_hmac_sha256).toMatch(/^[a-f0-9]{64}$/);
 
       if (record.decision === 'allow') foundAllow = true;
       if (record.decision === 'deny') foundDeny = true;
