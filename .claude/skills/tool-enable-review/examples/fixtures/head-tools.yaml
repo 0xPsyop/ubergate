@@ -1,0 +1,26 @@
+version: 1
+tools:
+  - id: demo.readRecord
+    server: demo
+    description: Read a record by ID.
+    risk: read
+    owner: "@team-demo"
+    enabled: true
+    needs_review: false
+    deprecated: false
+    source_hash: source-v1
+    request:
+      method: GET
+      path: /records/{id}
+      path_params:
+        - id
+      query_params: []
+      has_body: false
+    input_schema:
+      type: object
+      properties:
+        id:
+          type: string
+      additionalProperties: false
+      required:
+        - id

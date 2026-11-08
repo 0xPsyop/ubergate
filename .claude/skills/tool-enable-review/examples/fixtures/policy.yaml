@@ -1,0 +1,11 @@
+default: deny
+rules:
+  - actors:
+      - human
+      - service
+      - agent
+    risk:
+      - read
+    effect: allow
+    tools:
+      - "demo.*"
