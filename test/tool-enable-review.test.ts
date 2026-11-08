@@ -159,7 +159,7 @@ describe('tool-enable review checker', () => {
   });
 
   it('returns a clear nonzero CLI result for malformed YAML', () => {
-    const { base, head, policy } = baseCase();
+    const { base, policy } = baseCase();
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tool-review-yaml-'));
     const basePath = path.join(tempDir, 'base.yaml');
     const headPath = path.join(tempDir, 'head.yaml');
