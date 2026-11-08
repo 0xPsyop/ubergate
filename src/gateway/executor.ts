@@ -9,6 +9,34 @@ export interface ExecutionResult {
   isError: boolean;
 }
 
+function assertSafePathSegment(value: string, label: string): void {
+  let decoded = value;
+
+  for (let pass = 0; pass < 8; pass++) {
+    if (decoded === '.' || decoded === '..' || decoded.includes('/') || decoded.includes('\\')) {
+      throw new Error(`${label} must not contain path separators or dot segments`);
+    }
+
+    if (!decoded.includes('%')) {
+      return;
+    }
+
+    let next: string;
+    try {
+      next = decodeURIComponent(decoded);
+    } catch {
+      throw new Error(`${label} contains invalid percent encoding`);
+    }
+
+    if (next === decoded) {
+      return;
+    }
+    decoded = next;
+  }
+
+  throw new Error(`${label} contains excessive percent encoding`);
+}
+
 export async function executeTool(
   tool: Tool,
   args: Record<string, unknown>,
@@ -26,13 +54,33 @@ export async function executeTool(
     if (value === undefined || value === null) {
       throw new Error(`Missing path parameter: ${param}`);
     }
-    resolvedPath = resolvedPath.replace(`{${param}}`, encodeURIComponent(String(value)));
+    const pathValue = String(value);
+    assertSafePathSegment(pathValue, `Path parameter ${param}`);
+    resolvedPath = resolvedPath.split(`{${param}}`).join(encodeURIComponent(pathValue));
   }
 
-  // Build full URL
-  const baseUrl = serverConfig.base_url.replace(/\/+$/, '');
+  const baseUrl = new URL(serverConfig.base_url);
+  if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
+    throw new Error('Configured server base URL must use HTTP or HTTPS');
+  }
+
   const pathPrefix = resolvedPath.startsWith('/') ? resolvedPath : `/${resolvedPath}`;
-  let url = `${baseUrl}${pathPrefix}`;
+  if (pathPrefix.startsWith('//')) {
+    throw new Error('Tool path must not be protocol-relative');
+  }
+  for (const segment of pathPrefix.split('/')) {
+    if (segment) {
+      assertSafePathSegment(segment, 'Tool path segment');
+    }
+  }
+
+  const url = new URL(baseUrl);
+  url.pathname = `${baseUrl.pathname.replace(/\/+$/, '')}${pathPrefix}`;
+  url.search = '';
+  url.hash = '';
+  if (url.origin !== baseUrl.origin) {
+    throw new Error('Resolved tool URL changed the configured server origin');
+  }
 
   // Build query params
   const queryParams = new URLSearchParams();
@@ -49,10 +97,7 @@ export async function executeTool(
     }
   }
 
-  const queryString = queryParams.toString();
-  if (queryString) {
-    url += `?${queryString}`;
-  }
+  url.search = queryParams.toString();
 
   // Prepare request
   const controller = new AbortController();
