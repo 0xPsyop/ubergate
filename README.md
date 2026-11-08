@@ -1,11 +1,9 @@
 # UberGate
 
-<!-- demo.gif -->
-
-**UberGate** is an open, governed API-to-MCP gateway inspired by Uber Engineering's _"Designing MCP Gateway"_. It automatically crawls existing REST APIs described by OpenAPI specifications, generates tools that are **disabled by default**, and serves them to AI agents over standard MCP (Model Context Protocol). Cross-cutting concerns—caller authentication, fine-grained RBAC/policy by actor type and risk tier, rate limiting, PII redaction, audit logging, and token-efficient progressive discovery (`search_tools`, `get_schema`, `invoke_tool`)—are enforced in a centralized gateway layer so backend engineering teams never hand-write or insecurely expose MCP wrappers.
+Inspired by [Uber Engineering's "Designing MCP Gateway"](https://www.uber.com/gb/en/blog/designing-mcp-gateway/), UberGate is an independent implementation and is not Uber's code. It is an open, governed API-to-MCP gateway that automatically crawls existing REST APIs described by OpenAPI specifications, generates tools that are **disabled by default**, and serves them to AI agents over standard MCP (Model Context Protocol). Cross-cutting concerns—caller authentication, fine-grained RBAC/policy by actor type and risk tier, rate limiting, PII redaction, audit logging, and token-efficient progressive discovery (`search_tools`, `get_schema`, `invoke_tool`)—are enforced in a centralized gateway layer so backend engineering teams never hand-write or insecurely expose MCP wrappers.
 
 > [!NOTE]
-> Please update `.github/CODEOWNERS` with your organization or GitHub username (`@YOUR_GITHUB_USERNAME`) to enforce code reviews on tools configuration changes.
+> Tools configuration changes are reviewed by [`@0xPsyop`](.github/CODEOWNERS).
 
 ---
 
@@ -63,7 +61,7 @@ flowchart TD
 
 ```bash
 # Clone and install dependencies
-git clone https://github.com/your-org/ubergate.git
+git clone https://github.com/0xPsyop/ubergate.git
 cd ubergate
 npm install
 
